@@ -10,8 +10,8 @@ import {
 } from 'react';
 import { ToolShell, useTool, ImportExport } from '@itsjust/core';
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
-import { toolConfig, templateBaseVersion, Canvas, Toolbar, Sidebar, summaryText } from '@/tool';
-import { percentageCalculatorTool } from '@/tool/tool-definition';
+import { toolConfig, templateBaseVersion, Canvas, Toolbar, Sidebar, resultText } from '@/tool';
+import { colorScaleGeneratorTool } from '@/tool/tool-definition';
 import type { ToolState } from '@/tool/types';
 
 export default function ToolClient() {
@@ -23,7 +23,7 @@ export default function ToolClient() {
     StatusBar?: ComponentType<{ children?: ReactNode }>;
   };
   const canvasRef = useRef<HTMLDivElement>(null);
-  const tool = useTool<ToolState>(percentageCalculatorTool, canvasRef);
+  const tool = useTool<ToolState>(colorScaleGeneratorTool, canvasRef);
   const setToolData = tool.state.setData;
   const showToast = tool.toast;
   const [isSharing, setIsSharing] = useState(false);
@@ -52,7 +52,7 @@ export default function ToolClient() {
       const serialized = decompressFromEncodedURIComponent(encodedState);
       if (!serialized) throw new Error('Invalid shared URL');
       const parsed: unknown = JSON.parse(serialized);
-      const deserialized = percentageCalculatorTool.deserialize(parsed);
+      const deserialized = colorScaleGeneratorTool.deserialize(parsed);
       if (!deserialized.success) throw new Error(deserialized.error);
       setToolData(deserialized.data);
       showToast('Loaded state from shared URL', 'success');
@@ -64,10 +64,10 @@ export default function ToolClient() {
 
   const handleCopyResult = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(`${title}\n${summaryText(state)}`);
-      showToast('Result copied to clipboard', 'success');
+      await navigator.clipboard.writeText(`${title}\n${resultText(state) ?? ''}`);
+      showToast('Scale copied to clipboard', 'success');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to copy result';
+      const message = error instanceof Error ? error.message : 'Failed to copy scale';
       showToast(message, 'error');
     }
   }, [showToast, state, title]);
@@ -75,7 +75,7 @@ export default function ToolClient() {
   const handleShare = useCallback(async () => {
     setIsSharing(true);
     try {
-      const serialized = percentageCalculatorTool.serialize(state);
+      const serialized = colorScaleGeneratorTool.serialize(state);
       const encodedState = compressToEncodedURIComponent(serialized);
       if (!encodedState) throw new Error('Failed to encode state for URL');
       const url = new URL(window.location.href);
@@ -107,8 +107,8 @@ export default function ToolClient() {
     <>
       <Toolbar
         state={state}
-        onChange={(next) => setToolData(() => next)}
-        onClear={() => setToolData((prev) => ({ ...prev, history: [] }))}
+        onChange={(next) => handleStateChange(() => next)}
+        onClear={() => handleStateChange(() => ({ ...state, tweak: 0, lockedContrast: false }))}
         onCopy={() => void handleCopyResult()}
       />
       <ImportExport
@@ -122,13 +122,15 @@ export default function ToolClient() {
     </>
   );
 
-  const sidebarContent = <Sidebar state={state} onChange={(next) => setToolData(() => next)} />;
+  const sidebarContent = (
+    <Sidebar state={state} onChange={(next) => handleStateChange(() => next)} />
+  );
 
   const canvasContent = (
     <div ref={canvasRef}>
       <Canvas
         state={state}
-        onChange={(next) => setToolData(() => next)}
+        onChange={(next) => handleStateChange(() => next)}
         onSaveHistory={(text) =>
           setToolData((prev) => ({
             ...prev,
@@ -155,8 +157,8 @@ export default function ToolClient() {
           'Ready'
         )}
       </span>
-      <span className="status-slot status-slot-mode">{state.mode}</span>
-      <span className="status-slot status-slot-summary">{summaryText(state)}</span>
+      <span className="status-slot status-slot-mode">{state.curvePreset}</span>
+      <span className="status-slot status-slot-summary">{state.baseColor}</span>
       <span className="status-slot status-slot-history">{state.history.length} saved</span>
       <span className="status-slot status-slot-tool-version">Tool v{toolConfig.version}</span>
       <span className="status-slot status-slot-template-version">

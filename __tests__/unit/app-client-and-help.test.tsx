@@ -39,18 +39,13 @@ vi.mock('@itsjust/core', () => ({
   useTool: () => ({
     state: {
       data: {
-        mode: 'of',
-        percentageOf: '20',
-        ofBase: '150',
-        changeFrom: '80',
-        changeTo: '100',
-        reversePart: '30',
-        reversePercent: '15',
-        addSubValue: '250',
-        addSubPercent: '20',
-        addSubOp: 'add',
-        compoundA: '20',
-        compoundB: '30',
+        baseColor: '#3b82f6',
+        curvePreset: 'tailwind',
+        stepCount: 11,
+        tweak: 0,
+        lockedContrast: false,
+        contrastTargetValue: 4.5,
+        contrastTargetMode: 'white',
         history: [],
       },
       setData: mockSetData,
@@ -68,37 +63,34 @@ vi.mock('@itsjust/core', () => ({
 
 vi.mock('@/tool', () => ({
   toolConfig: {
-    id: '1795287972',
-    name: 'Percentage Calculator',
+    id: 'color-scale-generator',
+    name: 'Color Scale Generator',
     version: '1.0.0',
     features: { sidebar: true },
-    theme: { brand: 'Percentage Calculator' },
+    theme: { brand: 'Color Scale Generator' },
   },
   templateBaseVersion: '1.1.0',
-  Canvas: ({ state }: { state: Record<string, unknown> }) => <div>canvas:{String(state.mode)}</div>,
+  Canvas: ({ state }: { state: Record<string, unknown> }) => (
+    <div>canvas:{String(state.baseColor)}</div>
+  ),
   Toolbar: () => <div>toolbar</div>,
   Sidebar: () => <div>sidebar</div>,
-  summaryText: () => 'summary',
+  resultText: () => 'summary',
 }));
 
 vi.mock('@/tool/tool-definition', () => ({
-  percentageCalculatorTool: {
+  colorScaleGeneratorTool: {
     serialize: (state: unknown) => JSON.stringify(state),
     deserialize: () => ({
       success: true,
       data: {
-        mode: 'of',
-        percentageOf: '20',
-        ofBase: '150',
-        changeFrom: '80',
-        changeTo: '100',
-        reversePart: '30',
-        reversePercent: '15',
-        addSubValue: '250',
-        addSubPercent: '20',
-        addSubOp: 'add',
-        compoundA: '20',
-        compoundB: '30',
+        baseColor: '#3b82f6',
+        curvePreset: 'tailwind',
+        stepCount: 11,
+        tweak: 0,
+        lockedContrast: false,
+        contrastTargetValue: 4.5,
+        contrastTargetMode: 'white',
         history: [],
       },
     }),

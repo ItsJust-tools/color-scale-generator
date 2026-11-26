@@ -3,39 +3,25 @@ import toolConfig from './tool.config';
 import {
   DEFAULT_STATE,
   MAX_HISTORY,
-  parseNumber,
+  CURVE_PRESETS,
+  SCALE_STEPS,
+  buildScale,
   resultText,
-  stepsFor,
-  type AddSubOp,
+  type CurvePreset,
   type HistoryEntry,
-  type Mode,
   type ToolState,
 } from './types';
 
-const VALID_MODES: Mode[] = ['of', 'change', 'reverse', 'addsub', 'compound'];
-const VALID_OPS: AddSubOp[] = ['add', 'subtract'];
-
-/** Serialize tool state into a compact JSON string for share/import. */
-export function serializeState(state: ToolState): string {
-  return JSON.stringify({
-    mode: state.mode,
-    percentageOf: state.percentageOf,
-    ofBase: state.ofBase,
-    changeFrom: state.changeFrom,
-    changeTo: state.changeTo,
-    reversePart: state.reversePart,
-    reversePercent: state.reversePercent,
-    addSubValue: state.addSubValue,
-    addSubPercent: state.addSubPercent,
-    addSubOp: state.addSubOp,
-    compoundA: state.compoundA,
-    compoundB: state.compoundB,
-    history: state.history,
-  });
-}
+const VALID_CURVES: CurvePreset[] = CURVE_PRESETS;
+const VALID_TARGET_MODES = ['white', 'black'] as const;
 
 function stringOr(value: unknown, fallback: string): string {
   return typeof value === 'string' ? value : fallback;
+}
+
+function numberOrDefault(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
 }
 
 function validHistory(value: unknown): HistoryEntry[] {
@@ -51,32 +37,51 @@ function validHistory(value: unknown): HistoryEntry[] {
     .slice(0, MAX_HISTORY);
 }
 
+/** Serialize tool state into a compact JSON string for share/import. */
+export function serializeState(state: ToolState): string {
+  return JSON.stringify({
+    baseColor: state.baseColor,
+    curvePreset: state.curvePreset,
+    stepCount: state.stepCount,
+    tweak: state.tweak,
+    lockedContrast: state.lockedContrast,
+    contrastTargetValue: state.contrastTargetValue,
+    contrastTargetMode: state.contrastTargetMode,
+    history: state.history,
+  });
+}
+
 /** Validate and recover tool state from an arbitrary payload. */
 export function deserializeState(data: unknown): DeserializeResult<ToolState> {
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
     return {
       success: false,
-      error: 'Invalid data format: expected percentage calculator state object',
+      error: 'Invalid data format: expected color scale generator state object',
     };
   }
   const v = data as Record<string, unknown>;
-  const mode: Mode = VALID_MODES.includes(v.mode as Mode) ? (v.mode as Mode) : DEFAULT_STATE.mode;
-  const addSubOp: AddSubOp = VALID_OPS.includes(v.addSubOp as AddSubOp)
-    ? (v.addSubOp as AddSubOp)
-    : DEFAULT_STATE.addSubOp;
+  const curvePreset: CurvePreset = VALID_CURVES.includes(v.curvePreset as CurvePreset)
+    ? (v.curvePreset as CurvePreset)
+    : DEFAULT_STATE.curvePreset;
+  const contrastTargetMode =
+    typeof v.contrastTargetMode === 'string' &&
+    (VALID_TARGET_MODES as readonly string[]).includes(v.contrastTargetMode)
+      ? (v.contrastTargetMode as ToolState['contrastTargetMode'])
+      : DEFAULT_STATE.contrastTargetMode;
   const state: ToolState = {
-    mode,
-    percentageOf: stringOr(v.percentageOf, DEFAULT_STATE.percentageOf),
-    ofBase: stringOr(v.ofBase, DEFAULT_STATE.ofBase),
-    changeFrom: stringOr(v.changeFrom, DEFAULT_STATE.changeFrom),
-    changeTo: stringOr(v.changeTo, DEFAULT_STATE.changeTo),
-    reversePart: stringOr(v.reversePart, DEFAULT_STATE.reversePart),
-    reversePercent: stringOr(v.reversePercent, DEFAULT_STATE.reversePercent),
-    addSubValue: stringOr(v.addSubValue, DEFAULT_STATE.addSubValue),
-    addSubPercent: stringOr(v.addSubPercent, DEFAULT_STATE.addSubPercent),
-    addSubOp,
-    compoundA: stringOr(v.compoundA, DEFAULT_STATE.compoundA),
-    compoundB: stringOr(v.compoundB, DEFAULT_STATE.compoundB),
+    baseColor: stringOr(v.baseColor, DEFAULT_STATE.baseColor),
+    curvePreset,
+    stepCount: Math.round(numberOrDefault(v.stepCount, DEFAULT_STATE.stepCount, 10, 14)),
+    tweak: numberOrDefault(v.tweak, DEFAULT_STATE.tweak, -20, 20),
+    lockedContrast:
+      typeof v.lockedContrast === 'boolean' ? v.lockedContrast : DEFAULT_STATE.lockedContrast,
+    contrastTargetValue: numberOrDefault(
+      v.contrastTargetValue,
+      DEFAULT_STATE.contrastTargetValue,
+      1,
+      21
+    ),
+    contrastTargetMode,
     history: validHistory(v.history),
   };
   return { success: true, data: state };
@@ -98,9 +103,10 @@ export function roundTrips(state: ToolState): boolean {
   }
 }
 
-const numberOrNull = (value: string): number | null => parseNumber(value);
+/** Human-readable result for the active state, or null when inputs are invalid. */
+export { resultText };
 
-export const percentageCalculatorTool: Tool<ToolState> = {
+export const colorScaleGeneratorTool: Tool<ToolState> = {
   id: toolConfig.id,
   name: toolConfig.name,
   version: toolConfig.version,
@@ -116,4 +122,4 @@ export const percentageCalculatorTool: Tool<ToolState> = {
   ],
 };
 
-export { numberOrNull, resultText, stepsFor };
+export { SCALE_STEPS, buildScale };
